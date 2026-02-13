@@ -129,7 +129,7 @@ int main(void)
 
 	// SİSTEMİN BAŞLADIĞINI GÖSTEREN İLK MESAJ
 	HAL_UART_Transmit(&huart1,
-			(uint8_t*) "\r\n--- YIGIDO TEAM SISTEM BASLATILDI ---\r\n", 41,
+			(uint8_t*) "Başlatılıyor\r\n", 41,
 			1000);
 
 	if (HAL_CAN_Start(&hcan1) != HAL_OK) {

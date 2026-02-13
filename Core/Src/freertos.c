@@ -136,9 +136,9 @@ void StartDefaultTask(void *argument)
 		if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxHeader, RxData)
 				== HAL_OK) {
 			// Gelen mesajın Status bilgisini kontrol et
-			if (RxData[0] == 0x00) { // ACK_ACCEPTED [cite: 198]
+			if (RxData[0] == 0x00) {
 				// Komut başarıyla alındı
-			} else if (RxData[0] == 0x01) { // ACK_ERROR [cite: 198]
+			} else if (RxData[0] == 0x01) {
 				// Bir hata var!
 			}
 		}
@@ -163,19 +163,19 @@ void StartTask02(void *argument)
 	uint32_t TxMailbox;
 
 	// 1. Değişkenleri Tanımla
-	uint32_t priority = 7;      // [cite: 178]
-	uint32_t service_bit = 1;   // Service mesajı olduğu için 1 [cite: 179]
-	uint32_t request_bit = 1;   // İstek (Request) olduğu için 1 [cite: 181]
-	uint32_t service_id = 0x00; // Enable/Disable Servis ID'si [cite: 206]
-	uint32_t axis_bit = 1;  // Tek eksene (Axis) gönderildiği için 1 [cite: 183]
-	uint32_t dest_id = 1;       // Hedef Motor ID (TARGET_AXIS_ID) [cite: 184]
-	uint32_t source_id = 0;     // Gönderen (STM32) ID'si [cite: 187]
+	uint32_t priority = 7;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x00;
+	uint32_t axis_bit = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 0;
 
 	// 2. CAN Header Ayarlarını Yap
 	TxHeader.IDE = CAN_ID_EXT;
 	TxHeader.RTR = CAN_RTR_DATA;
 	TxHeader.TransmitGlobalTime = DISABLE;
-	TxHeader.DLC = 1; // Enable komutu 1 byte veri ister [cite: 206]
+	TxHeader.DLC = 1;
 
 	// 3. ExtId Hesapla (Değişkenleri burada kullanıyoruz)
 	// Dökümandaki bit dizilimine göre (Figure 5) [cite: 177]
@@ -184,7 +184,7 @@ void StartTask02(void *argument)
 			| (dest_id << 8) | (source_id);
 
 	// 4. Veriyi Hazırla (Enable komutu için 0x01)
-	TxData[0] = 0x01; // CMD = 0x01 (Enable) [cite: 208]
+	TxData[0] = 0x01;
 
 	/* Infinite loop */
 	for (;;) {
