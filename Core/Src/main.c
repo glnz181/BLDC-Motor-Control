@@ -60,18 +60,17 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define EC_SERVICE_ENABLE  0x00
-#define EC_SERVICE_SET     0x20
-#define EC_SERVICE_GET     0x30
-#define EC_SERVICE_MOVE    0x41
-
-/* Parameter Addresses */
-#define ADDR_DRIVE_MODE    0x0404
-#define ADDR_ACTUAL_SPEED  0x2002
-
-/* Axis ID */
-#define TARGET_AXIS_ID     0x01
-
+//#define EC_SERVICE_ENABLE  0x00
+//#define EC_SERVICE_SET     0x20
+//#define EC_SERVICE_GET     0x30
+//#define EC_SERVICE_MOVE    0x41
+//
+///* Parameter Addresses */
+//#define ADDR_DRIVE_MODE    0x0404
+//#define ADDR_ACTUAL_SPEED  0x2002
+//
+///* Axis ID */
+//#define TARGET_AXIS_ID     0x01
 /* USER CODE END 0 */
 
 /**
@@ -82,6 +81,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	HAL_UART_Transmit(&huart1, (uint8_t*) "MERHABA\r\n", 9, 1000);
 
   /* USER CODE END 1 */
 
@@ -128,19 +128,14 @@ int main(void)
 	char _initmsg[128]; // Mesaj boyutunu biraz artırdık
 
 	// SİSTEMİN BAŞLADIĞINI GÖSTEREN İLK MESAJ
-	HAL_UART_Transmit(&huart1,
-			(uint8_t*) "Başlatılıyor\r\n", 41,
-			1000);
+	char *start_txt = "Baslatiliyor\r\n";
+	HAL_UART_Transmit(&huart1, (uint8_t*) start_txt, strlen(start_txt), 1000);
 
 	if (HAL_CAN_Start(&hcan1) != HAL_OK) {
 		snprintf(_initmsg, sizeof(_initmsg), "HATA: CAN Baslatilamadi!\r\n");
 		HAL_UART_Transmit(&huart1, (uint8_t*) _initmsg, strlen(_initmsg),
 		HAL_MAX_DELAY);
 
-		while (1) {
-			HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13);
-			HAL_Delay(200);
-		}
 	} else {
 		snprintf(_initmsg, sizeof(_initmsg),
 				"BASARILI: CAN Hatti Aktif (Normal Mod)\r\n");
@@ -157,7 +152,6 @@ int main(void)
 				(uint8_t*) "BASARILI: CAN Dinleme Baslatildi.\r\n", 34, 1000);
 	}
 	HAL_TIM_Base_Start_IT(&htim6);
-	HAL_CAN_Start(&hcan1);
 
   /* USER CODE END 2 */
 
@@ -172,7 +166,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
 	while (1) {
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -228,7 +224,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM6) {
-		HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13);
+
 	}
 }
 
