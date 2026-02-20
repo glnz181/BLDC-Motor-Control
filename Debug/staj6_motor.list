@@ -626,19 +626,19 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
 
 080006b8 <MX_FREERTOS_Init>:
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
  80006b8:	b580      	push	{r7, lr}
  80006ba:	af00      	add	r7, sp, #0
 	/* add queues, ... */
-	/* USER CODE END RTOS_QUEUES */
+  /* USER CODE END RTOS_QUEUES */
 
-	/* Create the thread(s) */
-	/* creation of defaultTask */
-	defaultTaskHandle = osThreadNew(StartDefaultTask, NULL,
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
  80006bc:	4a08      	ldr	r2, [pc, #32]	@ (80006e0 <MX_FREERTOS_Init+0x28>)
  80006be:	2100      	movs	r1, #0
  80006c0:	4808      	ldr	r0, [pc, #32]	@ (80006e4 <MX_FREERTOS_Init+0x2c>)
@@ -646,10 +646,9 @@ void MX_FREERTOS_Init(void) {
  80006c6:	4603      	mov	r3, r0
  80006c8:	4a07      	ldr	r2, [pc, #28]	@ (80006e8 <MX_FREERTOS_Init+0x30>)
  80006ca:	6013      	str	r3, [r2, #0]
-			&defaultTask_attributes);
 
-	/* creation of myTask02 */
-	myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
+  /* creation of myTask02 */
+  myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
  80006cc:	4a07      	ldr	r2, [pc, #28]	@ (80006ec <MX_FREERTOS_Init+0x34>)
  80006ce:	2100      	movs	r1, #0
  80006d0:	4807      	ldr	r0, [pc, #28]	@ (80006f0 <MX_FREERTOS_Init+0x38>)
@@ -658,9 +657,9 @@ void MX_FREERTOS_Init(void) {
  80006d8:	4a06      	ldr	r2, [pc, #24]	@ (80006f4 <MX_FREERTOS_Init+0x3c>)
  80006da:	6013      	str	r3, [r2, #0]
 
-	/* USER CODE BEGIN RTOS_EVENTS */
+  /* USER CODE BEGIN RTOS_EVENTS */
 	/* add events, ... */
-	/* USER CODE END RTOS_EVENTS */
+  /* USER CODE END RTOS_EVENTS */
 
 }
  80006dc:	bf00      	nop
@@ -673,12 +672,12 @@ void MX_FREERTOS_Init(void) {
  80006f4:	200000a8 	.word	0x200000a8
 
 080006f8 <StartDefaultTask>:
- * @brief  Function implementing the defaultTask thread.
  * @param  argument: Not used
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
  80006f8:	b580      	push	{r7, lr}
  80006fa:	b08c      	sub	sp, #48	@ 0x30
  80006fc:	af00      	add	r7, sp, #0
@@ -726,19 +725,19 @@ void StartDefaultTask(void *argument) {
  8000744:	200000f8 	.word	0x200000f8
 
 08000748 <StartTask02>:
- * @brief Function implementing the myTask02 thread.
  * @param argument: Not used
  * @retval None
  */
 /* USER CODE END Header_StartTask02 */
-void StartTask02(void *argument) {
+void StartTask02(void *argument)
+{
  8000748:	b580      	push	{r7, lr}
  800074a:	b0da      	sub	sp, #360	@ 0x168
  800074c:	af08      	add	r7, sp, #32
  800074e:	f507 73a4 	add.w	r3, r7, #328	@ 0x148
  8000752:	f5a3 73a2 	sub.w	r3, r3, #324	@ 0x144
  8000756:	6018      	str	r0, [r3, #0]
-	/* USER CODE BEGIN StartTask02 */
+  /* USER CODE BEGIN StartTask02 */
 	CAN_TxHeaderTypeDef TxHeader;
 	uint8_t TxData[8] = { 0 };
  8000758:	f107 03e8 	add.w	r3, r7, #232	@ 0xe8
