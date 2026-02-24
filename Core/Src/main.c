@@ -19,8 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "can.h"
-#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -48,6 +46,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+uint8_t rx_data[12]; // Sürücüden gelen cevabı tutacak
 
 /* USER CODE END PV */
 
@@ -60,188 +59,283 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//#define EC_SERVICE_ENABLE  0x00
-//#define EC_SERVICE_SET     0x20
-//#define EC_SERVICE_GET     0x30
-//#define EC_SERVICE_MOVE    0x41
-//
-///* Parameter Addresses */
-//#define ADDR_DRIVE_MODE    0x0404
-//#define ADDR_ACTUAL_SPEED  0x2002
-//
-///* Axis ID */
-//#define TARGET_AXIS_ID     0x01
+
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
 
-  /* USER CODE BEGIN 1 */
-	HAL_UART_Transmit(&huart1, (uint8_t*) "MERHABA\r\n", 9, 1000);
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_CAN1_Init();
-  MX_TIM6_Init();
-  MX_USART1_UART_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_USART1_UART_Init();
+	MX_USART3_UART_Init();
+	/* USER CODE BEGIN 2 */
+	HAL_UART_Receive_IT(&huart1, rx_data, 11);
 
-	CAN_FilterTypeDef sFilterConfig;
+	HAL_UART_Transmit(&huart3, (uint8_t*) "SISTEM TEST\r\n", 13, 100);
+	/* USER CODE END 2 */
 
-	sFilterConfig.FilterBank = 0;
-	sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-	sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-	sFilterConfig.FilterIdHigh = 0x0000;
-	sFilterConfig.FilterIdLow = 0x0000;
-	sFilterConfig.FilterMaskIdHigh = 0x0000;
-	sFilterConfig.FilterMaskIdLow = 0x0000;
-	sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-	sFilterConfig.FilterActivation = ENABLE;
-	sFilterConfig.SlaveStartFilterBank = 14;
+	/* Init scheduler */
+	osKernelInitialize(); /* Call init function for freertos objects (in cmsis_os2.c) */
+	MX_FREERTOS_Init();
 
-	if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
-		Error_Handler();
-	}
+	/* Start scheduler */
+	osKernelStart();
 
-	char _initmsg[128]; // Mesaj boyutunu biraz artırdık
+	/* We should never get here as control is now taken by the scheduler */
 
-	// SİSTEMİN BAŞLADIĞINI GÖSTEREN İLK MESAJ
-	char *start_txt = "Baslatiliyor\r\n";
-	HAL_UART_Transmit(&huart1, (uint8_t*) start_txt, strlen(start_txt), 1000);
-
-	if (HAL_CAN_Start(&hcan1) != HAL_OK) {
-		snprintf(_initmsg, sizeof(_initmsg), "HATA: CAN Baslatilamadi!\r\n");
-		HAL_UART_Transmit(&huart1, (uint8_t*) _initmsg, strlen(_initmsg),
-		HAL_MAX_DELAY);
-
-	} else {
-		snprintf(_initmsg, sizeof(_initmsg),
-				"BASARILI: CAN Hatti Aktif (Normal Mod)\r\n");
-		HAL_UART_Transmit(&huart1, (uint8_t*) _initmsg, strlen(_initmsg),
-		HAL_MAX_DELAY);
-	}
-
-	if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING)
-			!= HAL_OK) {
-		HAL_UART_Transmit(&huart1,
-				(uint8_t*) "HATA: CAN Kesme Aktif Edilemedi!\r\n", 33, 1000);
-	} else {
-		HAL_UART_Transmit(&huart1,
-				(uint8_t*) "BASARILI: CAN Dinleme Baslatildi.\r\n", 34, 1000);
-	}
-	HAL_TIM_Base_Start_IT(&htim6);
-
-  /* USER CODE END 2 */
-
-  /* Init scheduler */
-  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
-  MX_FREERTOS_Init();
-
-  /* Start scheduler */
-  osKernelStart();
-
-  /* We should never get here as control is now taken by the scheduler */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 
 	while (1) {
 
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 	}
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 8;
+	RCC_OscInitStruct.PLL.PLLN = 336;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 4;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM6) {
 
+int __io_putchar(int ch) {
+	HAL_UART_Transmit(&huart3, (uint8_t*) &ch, 1, 0xFFFF);
+	return ch;
+}
+void send_enable(void) {
+	uint8_t uartFrame[8];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x00; // Enable service
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[4] = 1;        // DLC
+	uartFrame[5] = 0x01;     // Data (Enable command)
+	/* Frame Format:
+	 [ID byte3]
+	 [ID byte2]
+	 [ID byte1]
+	 [ID byte0]
+	 [DLC]
+	 [DATA]
+	 */
+	HAL_UART_Transmit(&huart1, uartFrame, 8, 10);
+
+}
+
+//void send_brake(void) {
+//	uint8_t uartFrame[6];
+//
+//	uint32_t priority = 3;
+//	uint32_t service_bit = 1;
+//	uint32_t request_bit = 1;
+//	uint32_t service_id = 0x01; // brake service
+//	uint32_t axis_id = 1;
+//	uint32_t dest_id = 1;
+//	uint32_t source_id = 2;
+//
+//	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+//			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+//			| (dest_id << 8) | (source_id << 0);
+//
+//	uartFrame[0] = (ExtId >> 24) & 0xFF;
+//	uartFrame[1] = (ExtId >> 16) & 0xFF;
+//	uartFrame[2] = (ExtId >> 8) & 0xFF;
+//	uartFrame[3] = (ExtId >> 0) & 0xFF;
+//	uartFrame[4] = 1;        // DLC
+//	uartFrame[5] = 0x01;     // Data (Enable command)
+//	/* Frame Format:
+//	 [ID byte3]
+//	 [ID byte2]
+//	 [ID byte1]
+//	 [ID byte0]
+//	 [DLC]
+//	 [DATA]
+//	 */
+//	HAL_UART_Transmit(&huart1, uartFrame, 6, HAL_MAX_DELAY);
+//
+//}
+
+//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+//	if (GPIO_Pin == GPIO_PIN_0) { // Assuming the button is connected to GPIO_PIN_0
+//		send_brake();
+//		HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13); // Toggle the LED on pin PA5
+//	}
+//
+//}
+
+void send_speed(int32_t current_speed) {
+	uint8_t uartFrame[10];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x41; // Set speed service
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[4] = 0x05;        // DLC
+	uartFrame[5] = 0x20;
+	uartFrame[6] = (current_speed >> 24) & 0xFF; // MSB
+	uartFrame[7] = (current_speed >> 16) & 0xFF;
+	uartFrame[8] = (current_speed >> 8) & 0xFF;
+	uartFrame[9] = (current_speed >> 0) & 0xFF;   // LSB
+
+	HAL_UART_Transmit(&huart1, uartFrame, 10, 10);
+}
+
+void send_get(uint16_t address) {
+
+	uint8_t uartFrame[8];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x30; // Enable service
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+
+	uartFrame[4] = 0x03;               // DLC (3 byte veri gidiyor)
+
+	uartFrame[5] = 0x04;            // Data1: Length=4 (32-bit veri okuyacağız)
+	uartFrame[6] = address & 0xFF;    // Data2: Addr0 (Adresin düşük byte'ı)
+	uartFrame[7] = (address >> 8) & 0xFF; // Data3: Addr1 (Adresin yüksek byte'ı)
+
+	HAL_UART_Transmit(&huart1, uartFrame, 8, 10);
+
+	// RealTerm'de kendi sorunu da gör:
+	HAL_UART_Transmit(&huart3, uartFrame, 8, 10);
+	uint8_t nl[] = { 0x0D, 0x0A };
+	HAL_UART_Transmit(&huart3, nl, 2, 10);
+
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	if (huart->Instance == USART1) {
+		// Ham veriyi sayıya dönüştür (Dökümana göre 7. byte'dan başlar)
+		int32_t speed_raw = (int32_t) (rx_data[10] << 24) | (rx_data[9] << 16)
+				| (rx_data[8] << 8) | (rx_data[7]);
+
+		// RPM cinsinden hesapla
+		float rpm = (float) speed_raw / 2048.0f;
+
+		// PUUTY/RealTerm'e OKUNAKLI metin gönder
+		printf("Motor Hizi: %.2f RPM\r\n", rpm);
+
+		// Dinlemeyi tekrar aç
+		HAL_UART_Receive_IT(&huart1, rx_data, 11);
 	}
 }
 
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT
 /**

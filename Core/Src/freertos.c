@@ -48,8 +48,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart3;
+extern void send_enable(void);
+extern void send_speed(int32_t current_speed);
+extern void send_brake(void);
+extern void send_get(int16_t address);
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -122,27 +126,16 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN StartDefaultTask */
+void StartDefaultTask(void *argument) {
+	/* USER CODE BEGIN StartDefaultTask */
 	/* USER CODE BEGIN 5 */
-	CAN_RxHeaderTypeDef RxHeader;
-	uint8_t RxData[8];
 	/* Infinite loop */
 	for (;;) {
-		if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxHeader, RxData)
-				== HAL_OK) {
-			// Gelen mesajın Status bilgisini kontrol et
-			if (RxData[0] == 0x00) {
-				// Komut başarıyla alındı
-			} else if (RxData[0] == 0x01) {
-				// Bir hata var!
-			}
-		}
 		osDelay(1);
+
 	}
 
-  /* USER CODE END StartDefaultTask */
+	/* USER CODE END StartDefaultTask */
 }
 
 /* USER CODE BEGIN Header_StartTask02 */
@@ -154,61 +147,20 @@ void StartDefaultTask(void *argument)
 /* USER CODE END Header_StartTask02 */
 void StartTask02(void *argument) {
 	/* USER CODE BEGIN StartTask02 */
-	CAN_TxHeaderTypeDef TxHeader;
-	uint8_t TxData[8];
-	uint32_t TxMailbox;
-	char debug_msg[150]; // Mesajları formatlamak için değişken
 
-	// 1. CAN Parametrelerini Belirle (Zaten sende var olan kısımlar)
-	uint32_t priority = 7;
-	uint32_t service_bit = 1;
-	uint32_t request_bit = 1;
-	uint32_t service_id = 0x00;
-	uint32_t axis_id = 1;
-	uint32_t dest_id = 1;
-	uint32_t source_id = 2;
+	send_enable();
+	osDelay(50);
 
-	TxHeader.IDE = CAN_ID_EXT;
-	TxHeader.RTR = CAN_RTR_DATA;
-	TxHeader.TransmitGlobalTime = DISABLE;
-	TxHeader.DLC = 8; // Gönderilen veri boyutu (1 byte)
+	send_speed(102400);
 
-	// ExtId Hesapla
-	TxHeader.ExtId = (priority << 26) | (service_bit << 25)
-			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
-			| (dest_id << 8) | (source_id);
-
-	// Veriyi Hazırla (Enable komutu: 0x01)
-	TxData[0] = 0x01;
-
-	/* Infinite loop */
 	for (;;) {
 
-		snprintf(debug_msg, sizeof(debug_msg),
-				"\r\n--- Yeni Mesaj Hazir ---\r\n"
-						"CAN ID (Ext): 0x%08lX\r\n"
-						"Data[0]: 0x%02X (Enable Komutu)\r\n"
-						"DLC: %lu\r\n", TxHeader.ExtId, TxData[0],
-				TxHeader.DLC);
+		send_get(0x2002); // Read actual speed
+		osDelay(200);
 
-		HAL_UART_Transmit(&huart1, (uint8_t*) debug_msg, strlen(debug_msg),
-				100);
+		send_get(0x2000); // Read actual position
+		osDelay(200);
 
-		// 2. Mesajı CAN Hattına Gönder
-		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox)
-				== HAL_OK) {
-			HAL_UART_Transmit(&huart1,
-					(uint8_t*) "DURUM: CAN Hattina Basildi (Mailbox OK)\r\n",
-					41, 100);
-		} else {
-			uint32_t error = HAL_CAN_GetError(&hcan1);
-			snprintf(debug_msg, sizeof(debug_msg),
-					"HATA: CAN Basılamadı! Hata Kodu: 0x%08lX\r\n", error);
-			HAL_UART_Transmit(&huart1, (uint8_t*) debug_msg, strlen(debug_msg),
-					100);
-		}
-
-		osDelay(2000); // 2 saniyede bir gönder (Okuması kolay olsun)
 	}
 	/* USER CODE END StartTask02 */
 }
