@@ -26,10 +26,19 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "string.h"
+#include "queue.h"
+
+extern QueueHandle_t motorTxQueue;
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct {
+	uint8_t data[10];
+	uint8_t length;
+
+} MotorCommand;
 
 /* USER CODE END PTD */
 
@@ -46,8 +55,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint8_t rx_data[12]; // Sürücüden gelen cevabı tutacak
-
+uint8_t rx_data[12];
+volatile int32_t last_speed_raw = 0;
+volatile uint8_t speed_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,9 +103,7 @@ int main(void) {
 	MX_USART1_UART_Init();
 	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
-	HAL_UART_Receive_IT(&huart1, rx_data, 11);
-
-	HAL_UART_Transmit(&huart3, (uint8_t*) "SISTEM TEST\r\n", 13, 100);
+	//HAL_UART_Receive_IT(&huart1, rx_data, 12);
 	/* USER CODE END 2 */
 
 	/* Init scheduler */
@@ -163,12 +171,9 @@ void SystemClock_Config(void) {
 
 /* USER CODE BEGIN 4 */
 
-int __io_putchar(int ch) {
-	HAL_UART_Transmit(&huart3, (uint8_t*) &ch, 1, 0xFFFF);
-	return ch;
-}
 void send_enable(void) {
-	uint8_t uartFrame[8];
+
+	MotorCommand cmd;
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
@@ -182,67 +187,21 @@ void send_enable(void) {
 			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
 			| (dest_id << 8) | (source_id << 0);
 
-	uartFrame[0] = (ExtId >> 24) & 0xFF;
-	uartFrame[1] = (ExtId >> 16) & 0xFF;
-	uartFrame[2] = (ExtId >> 8) & 0xFF;
-	uartFrame[3] = (ExtId >> 0) & 0xFF;
-	uartFrame[4] = 1;        // DLC
-	uartFrame[5] = 0x01;     // Data (Enable command)
-	/* Frame Format:
-	 [ID byte3]
-	 [ID byte2]
-	 [ID byte1]
-	 [ID byte0]
-	 [DLC]
-	 [DATA]
-	 */
-	HAL_UART_Transmit(&huart1, uartFrame, 8, 10);
+	cmd.data[0] = (ExtId >> 24) & 0xFF;
+	cmd.data[1] = (ExtId >> 16) & 0xFF;
+	cmd.data[2] = (ExtId >> 8) & 0xFF;
+	cmd.data[3] = (ExtId >> 0) & 0xFF;
+	cmd.data[4] = 1;        // DLC
+	cmd.data[5] = 0x01;     // Data (Enable command)
 
+	cmd.length = 6;
+
+	xQueueSend(motorTxQueue, &cmd, 0);
 }
 
-//void send_brake(void) {
-//	uint8_t uartFrame[6];
-//
-//	uint32_t priority = 3;
-//	uint32_t service_bit = 1;
-//	uint32_t request_bit = 1;
-//	uint32_t service_id = 0x01; // brake service
-//	uint32_t axis_id = 1;
-//	uint32_t dest_id = 1;
-//	uint32_t source_id = 2;
-//
-//	uint32_t ExtId = (priority << 26) | (service_bit << 25)
-//			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
-//			| (dest_id << 8) | (source_id << 0);
-//
-//	uartFrame[0] = (ExtId >> 24) & 0xFF;
-//	uartFrame[1] = (ExtId >> 16) & 0xFF;
-//	uartFrame[2] = (ExtId >> 8) & 0xFF;
-//	uartFrame[3] = (ExtId >> 0) & 0xFF;
-//	uartFrame[4] = 1;        // DLC
-//	uartFrame[5] = 0x01;     // Data (Enable command)
-//	/* Frame Format:
-//	 [ID byte3]
-//	 [ID byte2]
-//	 [ID byte1]
-//	 [ID byte0]
-//	 [DLC]
-//	 [DATA]
-//	 */
-//	HAL_UART_Transmit(&huart1, uartFrame, 6, HAL_MAX_DELAY);
-//
-//}
-
-//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-//	if (GPIO_Pin == GPIO_PIN_0) { // Assuming the button is connected to GPIO_PIN_0
-//		send_brake();
-//		HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13); // Toggle the LED on pin PA5
-//	}
-//
-//}
-
 void send_speed(int32_t current_speed) {
-	uint8_t uartFrame[10];
+
+	MotorCommand cmd;
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
@@ -256,28 +215,38 @@ void send_speed(int32_t current_speed) {
 			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
 			| (dest_id << 8) | (source_id << 0);
 
-	uartFrame[0] = (ExtId >> 24) & 0xFF;
-	uartFrame[1] = (ExtId >> 16) & 0xFF;
-	uartFrame[2] = (ExtId >> 8) & 0xFF;
-	uartFrame[3] = (ExtId >> 0) & 0xFF;
-	uartFrame[4] = 0x05;        // DLC
-	uartFrame[5] = 0x20;
-	uartFrame[6] = (current_speed >> 24) & 0xFF; // MSB
-	uartFrame[7] = (current_speed >> 16) & 0xFF;
-	uartFrame[8] = (current_speed >> 8) & 0xFF;
-	uartFrame[9] = (current_speed >> 0) & 0xFF;   // LSB
+	cmd.data[0] = (ExtId >> 24) & 0xFF;
+	cmd.data[1] = (ExtId >> 16) & 0xFF;
+	cmd.data[2] = (ExtId >> 8) & 0xFF;
+	cmd.data[3] = (ExtId >> 0) & 0xFF;
+	cmd.data[4] = 0x05;        // DLC
+	cmd.data[5] = 0x20;
+	cmd.data[6] = (current_speed >> 0) & 0xFF;  // Byte0 (LSB)
+	cmd.data[7] = (current_speed >> 8) & 0xFF;  // Byte1
+	cmd.data[8] = (current_speed >> 16) & 0xFF; // Byte2
+	cmd.data[9] = (current_speed >> 24) & 0xFF; // Byte3 (MSB)
 
-	HAL_UART_Transmit(&huart1, uartFrame, 10, 10);
+	cmd.length = 10;
+
+	// portMAX_DELAY yerine 100 ms verdik. Eğer kuyruk doluysa sonsuza kadar kilitlenmeyecek!
+	if (xQueueSend(motorTxQueue, &cmd, 100) != pdPASS) {
+		// Eğer 100ms içinde kuyruğa yazamazsa hata bas
+		char msg[] = "HATA: Kuyruk Dolu! send_speed kilitlendi.\r\n";
+		HAL_UART_Transmit(&huart3, (uint8_t*) msg, strlen(msg), 100);
+	} else {
+		// Başarıyla kuyruğa yazdıysa bilgi bas
+		char msg[] = "BASARILI: Komut kuyruga eklendi.\r\n";
+		HAL_UART_Transmit(&huart3, (uint8_t*) msg, strlen(msg), 100);
+	}
 }
+void send_reset(void) {
 
-void send_get(uint16_t address) {
-
-	uint8_t uartFrame[8];
+	MotorCommand cmd;
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
 	uint32_t request_bit = 1;
-	uint32_t service_id = 0x30; // Enable service
+	uint32_t service_id = 0xFF; // Set speed service
 	uint32_t axis_id = 1;
 	uint32_t dest_id = 1;
 	uint32_t source_id = 2;
@@ -286,41 +255,89 @@ void send_get(uint16_t address) {
 			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
 			| (dest_id << 8) | (source_id << 0);
 
-	uartFrame[0] = (ExtId >> 24) & 0xFF;
-	uartFrame[1] = (ExtId >> 16) & 0xFF;
-	uartFrame[2] = (ExtId >> 8) & 0xFF;
-	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	cmd.data[0] = (ExtId >> 24) & 0xFF;
+	cmd.data[1] = (ExtId >> 16) & 0xFF;
+	cmd.data[2] = (ExtId >> 8) & 0xFF;
+	cmd.data[3] = (ExtId >> 0) & 0xFF;
+	cmd.data[4] = 0x00;        // DLC
 
-	uartFrame[4] = 0x03;               // DLC (3 byte veri gidiyor)
+	cmd.length = 5;
 
-	uartFrame[5] = 0x04;            // Data1: Length=4 (32-bit veri okuyacağız)
-	uartFrame[6] = address & 0xFF;    // Data2: Addr0 (Adresin düşük byte'ı)
-	uartFrame[7] = (address >> 8) & 0xFF; // Data3: Addr1 (Adresin yüksek byte'ı)
+	xQueueSend(motorTxQueue, &cmd, portMAX_DELAY);
+}
 
-	HAL_UART_Transmit(&huart1, uartFrame, 8, 10);
+void send_get(uint16_t address) {
+	MotorCommand cmd;
 
-	// RealTerm'de kendi sorunu da gör:
-	HAL_UART_Transmit(&huart3, uartFrame, 8, 10);
-	uint8_t nl[] = { 0x0D, 0x0A };
-	HAL_UART_Transmit(&huart3, nl, 2, 10);
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x30; // Get speed service
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
 
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	cmd.data[0] = (ExtId >> 24) & 0xFF;
+	cmd.data[1] = (ExtId >> 16) & 0xFF;
+	cmd.data[2] = (ExtId >> 8) & 0xFF;
+	cmd.data[3] = (ExtId >> 0) & 0xFF;
+
+	cmd.data[4] = 0x03;        // DLC
+
+	cmd.data[5] = 0x04; //length
+	cmd.data[6] = address & 0xFF;
+	cmd.data[7] = (address >> 8) & 0xFF;
+
+	cmd.length = 8;
+
+	xQueueSend(motorTxQueue, &cmd, portMAX_DELAY);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart->Instance == USART1) {
-		// Ham veriyi sayıya dönüştür (Dökümana göre 7. byte'dan başlar)
-		int32_t speed_raw = (int32_t) (rx_data[10] << 24) | (rx_data[9] << 16)
-				| (rx_data[8] << 8) | (rx_data[7]);
+		last_speed_raw = (int32_t) ((rx_data[10] << 24) | (rx_data[9] << 16)
+				| (rx_data[8] << 8) | (rx_data[7]));
 
-		// RPM cinsinden hesapla
-		float rpm = (float) speed_raw / 2048.0f;
+		speed_flag = 1;
 
-		// PUUTY/RealTerm'e OKUNAKLI metin gönder
-		printf("Motor Hizi: %.2f RPM\r\n", rpm);
-
-		// Dinlemeyi tekrar aç
-		HAL_UART_Receive_IT(&huart1, rx_data, 11);
+		HAL_UART_Receive_IT(&huart1, rx_data, 12);
 	}
+}
+
+void send_stop(void) {
+	MotorCommand cmd;
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x41; // MOVE Service ID
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	cmd.data[0] = (ExtId >> 24) & 0xFF;
+	cmd.data[1] = (ExtId >> 16) & 0xFF;
+	cmd.data[2] = (ExtId >> 8) & 0xFF;
+	cmd.data[3] = (ExtId >> 0) & 0xFF;
+
+	cmd.data[4] = 0x05;        // DLC
+	cmd.data[5] = 0x81;  // CMD: 0x81 -> Abort Decel. to Stop (Yavaşlayarak Dur)
+
+	cmd.data[6] = 0x00;
+	cmd.data[7] = 0x00;
+	cmd.data[8] = 0x00;
+	cmd.data[9] = 0x00;
+
+	cmd.length = 10;
+	xQueueSend(motorTxQueue, &cmd, 100);
 }
 
 /* USER CODE END 4 */
