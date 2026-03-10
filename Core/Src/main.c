@@ -1,0 +1,398 @@
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "stdio.h"
+#include "string.h"
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+void send_reset(void);
+void send_enable(void);
+void send_get_digital_inputs(void);
+void send_set_acceleration(void);
+void send_speed_move(uint32_t speed);
+void send_get_param(uint8_t addr0, uint8_t addr1);
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+
+	/* USER CODE BEGIN 1 */
+
+	/* USER CODE END 1 */
+
+	/* MCU Configuration--------------------------------------------------------*/
+
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
+
+	/* USER CODE BEGIN Init */
+
+	/* USER CODE END Init */
+
+	/* Configure the system clock */
+	SystemClock_Config();
+
+	/* USER CODE BEGIN SysInit */
+
+	/* USER CODE END SysInit */
+
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_USART1_UART_Init();
+	MX_USART3_UART_Init();
+	/* USER CODE BEGIN 2 */
+
+	/* USER CODE END 2 */
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
+	//send_reset();
+	//HAL_Delay(1000);
+	send_set_acceleration();
+	HAL_Delay(1000);
+
+	send_enable();
+	HAL_Delay(1000);
+
+	send_speed_move(100);
+
+	while (1) {
+
+		/* USER CODE END WHILE */
+
+		/* USER CODE BEGIN 3 */
+	}
+	/* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 4;
+	RCC_OscInitStruct.PLL.PLLN = 168;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 4;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
+
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+		Error_Handler();
+	}
+}
+
+/* USER CODE BEGIN 4 */
+void send_reset(void) {
+	uint8_t uartFrame[6];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0xFF;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[4] = 1;
+	uartFrame[5] = 0x01;
+
+	HAL_UART_Transmit(&huart1, uartFrame, 6, HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart3, uartFrame, 6, HAL_MAX_DELAY);
+}
+
+void send_enable(void) {
+	uint8_t uartFrame[6];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x00;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[4] = 1;
+	uartFrame[5] = 0x01;
+
+	HAL_UART_Transmit(&huart1, uartFrame, 6, HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart3, uartFrame, 6, HAL_MAX_DELAY);
+}
+void send_get_digital_inputs(void) {
+	uint8_t uartFrame[7];
+	uint8_t rxByte[7];
+	char rxBuffer[50];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x30;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[4] = 4;
+	uartFrame[5] = 0x11;
+	uartFrame[6] = 0x20; //00 11 20 01 00 00 00
+
+	HAL_UART_Transmit(&huart1, uartFrame, 7, HAL_MAX_DELAY);
+	memset(rxByte, 0, sizeof(rxByte));
+	HAL_UART_Receive(&huart1, rxByte, 7, 100);
+
+	sprintf(rxBuffer, "RX: %02X %02X %02X %02X %02X %02X %02X\r\n", rxByte[0],
+			rxByte[1], rxByte[2], rxByte[3], rxByte[4], rxByte[5], rxByte[6]);
+
+	HAL_UART_Transmit(&huart3, (uint8_t*) rxBuffer, strlen(rxBuffer),
+	HAL_MAX_DELAY);
+}
+
+void send_set_acceleration(void) {
+	uint8_t uartFrame[11];
+	uint8_t rx[7];
+	char buffer[60];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x20;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	int32_t accel = 2000;
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+
+	uartFrame[4] = 4;
+
+	uartFrame[5] = 0xA1;
+	uartFrame[6] = 0x04;
+
+	uartFrame[7] = (accel >> 24) & 0xFF;
+	uartFrame[8] = (accel >> 16) & 0xFF;
+	uartFrame[9] = (accel >> 8) & 0xFF;
+	uartFrame[10] = (accel >> 0) & 0xFF;
+
+	HAL_UART_Transmit(&huart1, uartFrame, 11, HAL_MAX_DELAY);
+
+	memset(rx, 0, sizeof(rx));
+	HAL_UART_Receive(&huart1, rx, 7, 200);
+
+	sprintf(buffer, "ACC RX: %02X %02X %02X %02X %02X %02X %02X\r\n", rx[0],
+			rx[1], rx[2], rx[3], rx[4], rx[5], rx[6]);
+	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
+	HAL_MAX_DELAY);
+
+}
+void send_get_param(uint8_t addr0, uint8_t addr1) {
+	uint8_t uartFrame[7];
+	uint8_t rxByte[7];
+	char rxBuffer[60];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x30;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+
+	uartFrame[4] = 4;       // 32-bit read
+	uartFrame[5] = addr0;
+	uartFrame[6] = addr1;
+
+	HAL_UART_Transmit(&huart1, uartFrame, 7, HAL_MAX_DELAY);
+
+	memset(rxByte, 0, sizeof(rxByte));
+	HAL_UART_Receive(&huart1, rxByte, 7, 200);
+
+	sprintf(rxBuffer, "GET RX: %02X %02X %02X %02X %02X %02X %02X\r\n",
+			rxByte[0], rxByte[1], rxByte[2], rxByte[3], rxByte[4], rxByte[5],
+			rxByte[6]);
+
+	HAL_UART_Transmit(&huart3, (uint8_t*) rxBuffer, strlen(rxBuffer),
+	HAL_MAX_DELAY);
+}
+
+void send_speed_move(uint32_t speed) {
+	uint8_t uartFrame[9];
+	uint8_t rx[6];
+	char buffer[60];
+
+	uint32_t priority = 3;
+	uint32_t service_bit = 1;
+	uint32_t request_bit = 1;
+	uint32_t service_id = 0x41;
+	uint32_t axis_id = 1;
+	uint32_t dest_id = 1;
+	uint32_t source_id = 2;
+
+	uint32_t ExtId = (priority << 26) | (service_bit << 25)
+			| (request_bit << 24) | (service_id << 16) | (axis_id << 15)
+			| (dest_id << 8) | (source_id << 0);
+
+	int32_t speed_iu = speed * 2048;
+
+	uartFrame[0] = (ExtId >> 24) & 0xFF;
+	uartFrame[1] = (ExtId >> 16) & 0xFF;
+	uartFrame[2] = (ExtId >> 8) & 0xFF;
+	uartFrame[3] = (ExtId >> 0) & 0xFF;
+
+	uartFrame[4] = 0x20;
+
+	uartFrame[5] = (speed_iu >> 24) & 0xFF;
+	uartFrame[6] = (speed_iu >> 16) & 0xFF;
+	uartFrame[7] = (speed_iu >> 8) & 0xFF;
+	uartFrame[8] = (speed_iu >> 0) & 0xFF;
+
+	HAL_UART_Transmit(&huart1, uartFrame, 9, HAL_MAX_DELAY);
+
+	memset(rx, 0, sizeof(rx));
+	HAL_UART_Receive(&huart1, rx, 6, 200);
+
+	sprintf(buffer, "MOVE RX: %02X %02X %02X %02X %02X %02X %02X\r\n", rx[0],
+			rx[1], rx[2], rx[3], rx[4], rx[5], rx[6]);
+
+	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
+	HAL_MAX_DELAY);
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
+	__disable_irq();
+	while (1) {
+	}
+	/* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
