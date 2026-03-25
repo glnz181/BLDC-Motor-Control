@@ -114,19 +114,15 @@ int main(void) {
 
 	while (1) {
 
-		send_speed_move(0, 100);   // group 0 all-call
-		HAL_Delay(5000);
-		HAL_UART_Transmit(&huart3, (uint8_t*) "motor1: ", 10, HAL_MAX_DELAY);
-
-		send_get_encoder_counter(1, 0x00, 0x20);
-		HAL_UART_Transmit(&huart3, (uint8_t*) "motor2: ", 10, HAL_MAX_DELAY);
-
-		send_get_encoder_counter(2, 0x00, 0x20);
-		HAL_UART_Transmit(&huart3, (uint8_t*) "motor3: ", 10, HAL_MAX_DELAY);
-
-		send_get_encoder_counter(3, 0x00, 0x20);
-
+		send_speed_move(0, 1000);   // group 0 all-call
 		HAL_Delay(1000);
+
+		send_get_param(2, 0x33, 0x20);
+		send_get_param(3, 0x33, 0x20);
+
+//		send_speed_move(0, 50);   // group 0 all-call
+//		HAL_Delay(5000);
+
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -205,6 +201,8 @@ void send_reset(uint32_t axis_id) {
 
 void send_enable(uint32_t axis_id) {
 	uint8_t uartFrame[6];
+	uint8_t rx[7];
+	char buffer[160];
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
@@ -225,8 +223,23 @@ void send_enable(uint32_t axis_id) {
 	uartFrame[4] = 1;
 	uartFrame[5] = 0x01;
 
+	sprintf(buffer, "ENABLE TX: %02X %02X %02X %02X %02X %02X\r\n",
+			uartFrame[0], uartFrame[1], uartFrame[2], uartFrame[3],
+			uartFrame[4], uartFrame[5]);
+
+	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
+	HAL_MAX_DELAY);
+
 	HAL_UART_Transmit(&huart1, uartFrame, 6, HAL_MAX_DELAY);
-	//HAL_UART_Transmit(&huart3, uartFrame, 6, HAL_MAX_DELAY);
+
+	memset(rx, 0, sizeof(rx));
+	HAL_UART_Receive(&huart1, rx, 7, 200);
+
+	sprintf(buffer, "ENABLE RX: %02X %02X %02X %02X %02X %02X %02X\r\n", rx[0],
+			rx[1], rx[2], rx[3], rx[4], rx[5], rx[6]);
+
+	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
+	HAL_MAX_DELAY);
 }
 void send_get_digital_inputs(uint32_t axis_id) {
 	uint8_t uartFrame[7];
@@ -350,8 +363,8 @@ void send_get_encoder_counter(uint32_t axis_id, uint8_t addr0, uint8_t addr1) {
 }
 void send_get_param(uint32_t axis_id, uint8_t addr0, uint8_t addr1) {
 	uint8_t uartFrame[7];
-	uint8_t rxByte[7];
-	char rxBuffer[60];
+	uint8_t responseFrame[12] = { 0 };
+	char txBuffer[80];
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
@@ -365,10 +378,10 @@ void send_get_param(uint32_t axis_id, uint8_t addr0, uint8_t addr1) {
 			| (request_bit << 24) | (service_id << 16) | (axis_id_group << 15)
 			| (dest_id << 8) | (source_id << 0);
 
-	uartFrame[0] = (ExtId >> 24) & 0xFF;
-	uartFrame[1] = (ExtId >> 16) & 0xFF;
-	uartFrame[2] = (ExtId >> 8) & 0xFF;
-	uartFrame[3] = (ExtId >> 0) & 0xFF;
+	uartFrame[0] = (ExtId >> 0) & 0xFF;
+	uartFrame[1] = (ExtId >> 8) & 0xFF;
+	uartFrame[2] = (ExtId >> 16) & 0xFF;
+	uartFrame[3] = (ExtId >> 24) & 0xFF;
 
 	uartFrame[4] = 4;       // 32-bit read
 	uartFrame[5] = addr0;
@@ -376,15 +389,26 @@ void send_get_param(uint32_t axis_id, uint8_t addr0, uint8_t addr1) {
 
 	HAL_UART_Transmit(&huart1, uartFrame, 7, HAL_MAX_DELAY);
 
-	memset(rxByte, 0, sizeof(rxByte));
-	HAL_UART_Receive(&huart1, rxByte, 7, 200);
+	HAL_StatusTypeDef status = HAL_UART_Receive(&huart1, responseFrame, 8, 200);
 
-	sprintf(rxBuffer, "GET RX: %02X %02X %02X %02X %02X %02X %02X\r\n",
-			rxByte[0], rxByte[1], rxByte[2], rxByte[3], rxByte[4], rxByte[5],
-			rxByte[6]);
+	if (status == HAL_OK) {
+		int32_t encoder_value = (responseFrame[6] << 24)
+				| (responseFrame[7] << 16) | (responseFrame[8] << 8)
+				| responseFrame[9];
 
-	HAL_UART_Transmit(&huart3, (uint8_t*) rxBuffer, strlen(rxBuffer),
-	HAL_MAX_DELAY);
+		sprintf(txBuffer, "Sira: %02X %02X %02X %02X | Deger: %ld\r\n",
+				responseFrame[6], responseFrame[7], responseFrame[8],
+				responseFrame[9], encoder_value);
+		HAL_UART_Transmit(&huart3, (uint8_t*) txBuffer, strlen(txBuffer), 100);
+
+	}
+
+	else {
+		// Cevap gelmezse hata bas
+		sprintf(txBuffer, "Hata: Surucu cevap vermedi (Status: %d)\r\n",
+				status);
+		HAL_UART_Transmit(&huart3, (uint8_t*) txBuffer, strlen(txBuffer), 100);
+	}
 }
 
 void send_set_acceleration(uint32_t axis_id, int32_t accel) {
@@ -414,10 +438,10 @@ void send_set_acceleration(uint32_t axis_id, int32_t accel) {
 	uartFrame[5] = 0xA1;
 	uartFrame[6] = 0x04;
 
-	uartFrame[7] = (accel >> 24) & 0xFF;
-	uartFrame[8] = (accel >> 16) & 0xFF;
-	uartFrame[9] = (accel >> 8) & 0xFF;
-	uartFrame[10] = (accel >> 0) & 0xFF;
+	uartFrame[7] = (accel >> 0) & 0xFF;
+	uartFrame[8] = (accel >> 8) & 0xFF;
+	uartFrame[9] = (accel >> 16) & 0xFF;
+	uartFrame[10] = (accel >> 24) & 0xFF;
 
 	HAL_UART_Transmit(&huart1, uartFrame, 11, HAL_MAX_DELAY);
 
@@ -457,10 +481,10 @@ void send_set_can_options(uint32_t axis_id, uint32_t options_value) {
 	uartFrame[5] = 0xAA;    // Addr0
 	uartFrame[6] = 0x04;    // Addr1
 
-	uartFrame[7] = (options_value >> 24) & 0xFF;
-	uartFrame[8] = (options_value >> 16) & 0xFF;
-	uartFrame[9] = (options_value >> 8) & 0xFF;
-	uartFrame[10] = (options_value >> 0) & 0xFF;
+	uartFrame[7] = (options_value >> 0) & 0xFF;
+	uartFrame[8] = (options_value >> 8) & 0xFF;
+	uartFrame[9] = (options_value >> 16) & 0xFF;
+	uartFrame[10] = (options_value >> 24) & 0xFF;
 
 	HAL_UART_Transmit(&huart1, uartFrame, 11, HAL_MAX_DELAY);
 
@@ -476,8 +500,8 @@ void send_set_can_options(uint32_t axis_id, uint32_t options_value) {
 
 void send_speed_move(uint32_t axis_id, uint32_t speed) {
 	uint8_t uartFrame[9];
-//	uint8_t rx[7];
-//	char buffer[60];
+	uint8_t rx[7];
+	char buffer[60];
 
 	uint32_t priority = 3;
 	uint32_t service_bit = 1;
@@ -500,10 +524,19 @@ void send_speed_move(uint32_t axis_id, uint32_t speed) {
 
 	uartFrame[4] = 0x20;
 
-	uartFrame[5] = (speed_iu >> 24) & 0xFF;
-	uartFrame[6] = (speed_iu >> 16) & 0xFF;
-	uartFrame[7] = (speed_iu >> 8) & 0xFF;
-	uartFrame[8] = (speed_iu >> 0) & 0xFF;
+	// Mevcut sırayı ters çevirip denemek için:
+	uartFrame[5] = (speed_iu >> 0) & 0xFF;
+	uartFrame[6] = (speed_iu >> 8) & 0xFF;
+	uartFrame[7] = (speed_iu >> 16) & 0xFF;
+	uartFrame[8] = (speed_iu >> 24) & 0xFF;
+
+//	sprintf(buffer, "MOVE TX: %02X %02X %02X %02X %02X %02X %02X %02X %02X\r\n",
+//			uartFrame[0], uartFrame[1], uartFrame[2], uartFrame[3],
+//			uartFrame[4], uartFrame[5], uartFrame[6], uartFrame[7],
+//			uartFrame[8]);
+//
+//	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
+//	HAL_MAX_DELAY);
 
 	HAL_UART_Transmit(&huart1, uartFrame, 9, HAL_MAX_DELAY);
 
@@ -512,7 +545,7 @@ void send_speed_move(uint32_t axis_id, uint32_t speed) {
 //
 //	sprintf(buffer, "MOVE RX: %02X %02X %02X %02X %02X %02X %02X\r\n", rx[0],
 //			rx[1], rx[2], rx[3], rx[4], rx[5], rx[6]);
-
+//
 //	HAL_UART_Transmit(&huart3, (uint8_t*) buffer, strlen(buffer),
 //	HAL_MAX_DELAY);
 }
